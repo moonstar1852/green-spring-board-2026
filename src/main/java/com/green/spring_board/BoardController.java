@@ -1,6 +1,7 @@
 package com.green.spring_board;
 
 
+import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -8,12 +9,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/board")
+@AllArgsConstructor
 public class BoardController {
     private BoardRepository boardRepository;
 
-    public BoardController(BoardRepository boardRepository) {
-        this.boardRepository = boardRepository;
-    }
 
     // 전체 조회
     @GetMapping("/list")
@@ -22,9 +21,13 @@ public class BoardController {
     }
 
     // 상세 조회
-    @GetMapping("/id")
+    @GetMapping("/{id}")
     public Boards getBoardDetail(@PathVariable int id) {
-        return boardRepository.findById(id).get();
+        Boards board = boardRepository.findById(id).get();
+        board.setHits(board.getHits() + 1);
+        boardRepository.save(board);
+
+        return board;
     }
 
 
@@ -48,7 +51,7 @@ public class BoardController {
     }
 
         // 수정
-        @PatchMapping("/id")
+        @PatchMapping("/{id}")
         public void updateBoard(
                 @PathVariable int id,
                 @RequestBody BoardCreateRequest boardCreateRequest
@@ -69,7 +72,7 @@ public class BoardController {
         }
 
         // 삭제
-        @DeleteMapping("/id")
+        @DeleteMapping("/{id}")
         public void deleteBoard (@PathVariable int id){
             boardRepository.deleteById(id);
         }
