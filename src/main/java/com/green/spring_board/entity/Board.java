@@ -14,7 +14,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 
-public class Boards {
+public class Board {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
