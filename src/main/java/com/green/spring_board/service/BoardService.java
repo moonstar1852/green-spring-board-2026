@@ -5,12 +5,10 @@ import com.green.spring_board.dto.BoardUpdateRequest;
 import com.green.spring_board.entity.User;
 import com.green.spring_board.exceptions.ResourceNotFoundException;
 import com.green.spring_board.exceptions.UnauthenticatedException;
-import com.green.spring_board.exceptions.UserRequestException;
 import com.green.spring_board.dto.BoardCreateRequest;
 import com.green.spring_board.repository.BoardRepository;
 import com.green.spring_board.entity.Board;
 import com.green.spring_board.repository.UserRepository;
-import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -26,30 +24,31 @@ public class BoardService {
 
     // 전체 조회
     public List<BoardResponse> getAllBoards() {
-
-         List<Board> boards = boardRepository.findAll();
-         List<BoardResponse> boardResponses = new ArrayList<>();
-
-         for (Board board : boards){
-             boardResponses.add(
-                     new BoardResponse(
-                             board.getId(),
-                             board.getTitle(),
-                             board.getContent(),
-                             board.getHits(),
-                             board.getUser().getId(),
-                             board.getUser().getNickname(),
-                             board.getCreatedDatetime(),
-                             board.getUpdatedDatetime()
-                     )
-             );
-         }
-         return boardResponses;
-         // List<Board> -> List<BoardResponse> 형태로 변환
+        // List<Board> -> List<BoardResponse> 형태로 변환 후 반환
+        List<Board> boards = boardRepository.findAll();
 
         // 1. List<BoardResponse> 형태의 빈 리스트 생성
+        List<BoardResponse> boardResponses = new ArrayList<>();
+
         // 2. Board 개수만큼 반복하며 new BoardResponse 생성
-        // 3. 1번에서 만든 리스트에 추가
+        for (Board board : boards) {
+            // 3. 1번에서 만든 리스트에 추가
+            boardResponses.add(
+                    new BoardResponse(
+                            board.getId(),
+                            board.getTitle(),
+                            board.getContent(),
+                            board.getHits(),
+                            board.getUser().getId(),
+                            board.getUser().getNickname(),
+                            board.getCreatedDatetime(),
+                            board.getUpdatedDatetime()
+                    )
+            );
+        }
+        return boardResponses;
+
+
     }
 
     // 상세 조회
@@ -60,29 +59,24 @@ public class BoardService {
             throw new ResourceNotFoundException("요청한 게시글을 찾지 못했습니다.");
         }
         Board board = optionalBoard.get();
+
+        User user = board.getUser();
+        System.out.println(user.getNickname());
         board.setHits(board.getHits() + 1);
         boardRepository.save(board);
-
-                return new BoardResponse(
-                        board.getId(),
-                        board.getTitle(),
-                        board.getContent(),
-                        board.getHits(),
-                        board.getUser().getId(),
-                        board.getUser().getNickname(),
-                        board.getCreatedDatetime(),
-                        board.getUpdatedDatetime()
-                );
+        return new BoardResponse(
+                board.getId(),
+                board.getTitle(),
+                board.getContent(),
+                board.getHits(),
+                board.getUser().getId(),
+                board.getUser().getNickname(),
+                board.getCreatedDatetime(),
+                board.getUpdatedDatetime()
+        );
     }
 
     public int createBoard(BoardCreateRequest boardCreateRequest, Integer userId) {
-        if(boardCreateRequest.getTitle() == null || boardCreateRequest.getTitle().isBlank()){
-            throw new UserRequestException("잘못된 입력값 입니다.");
-        }
-        if(boardCreateRequest.getContent() == null || boardCreateRequest.getContent().isBlank()){
-            throw new UserRequestException("잘못된 입력값 입니다.");
-        }
-
         // userId 유효성 체크 (해당 userId의 유저가 정상적으로 존재하는지)
         // TODO :: 이후 삭제/탈퇴 유저에 대한 검증도 추가 필요
         Optional<User> user = userRepository.findById(userId);
@@ -94,13 +88,12 @@ public class BoardService {
         board.setTitle(boardCreateRequest.getTitle());
         board.setContent(boardCreateRequest.getContent());
         board.setUser(user.get());
-
         Board savedBoard = boardRepository.save(board);
 
         return savedBoard.getId();
     }
 
-    public void updateBoard(int id, @Valid BoardUpdateRequest boardCreateRequest) {
+    public void updateBoard(int id, BoardUpdateRequest boardUpdateRequest) {
         Optional<Board> optionalBoards = boardRepository.findById(id);
         if(optionalBoards.isEmpty()) {
             // 게시글을 못 찾은 경우
@@ -108,12 +101,12 @@ public class BoardService {
         }
         Board board = optionalBoards.get();
 
-        if(boardCreateRequest.getTitle() == null || boardCreateRequest.getTitle().isBlank()) {
-            board.setTitle(boardCreateRequest.getTitle());
+        if(boardUpdateRequest.getTitle() != null && !boardUpdateRequest.getTitle().isBlank()) {
+            board.setTitle(boardUpdateRequest.getTitle());
         }
 
-        if(boardCreateRequest.getContent() != null && !boardCreateRequest.getContent().isBlank()) {
-            board.setContent(boardCreateRequest.getContent());
+        if(boardUpdateRequest.getContent() != null && !boardUpdateRequest.getContent().isBlank()) {
+            board.setContent(boardUpdateRequest.getContent());
         }
 
         boardRepository.save(board);
