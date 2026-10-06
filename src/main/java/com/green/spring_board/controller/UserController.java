@@ -3,6 +3,7 @@ package com.green.spring_board.controller;
 import com.green.spring_board.dto.LoginRequest;
 import com.green.spring_board.dto.MyInfoResponse;
 import com.green.spring_board.dto.SignupRequest;
+import com.green.spring_board.dto.UserUpdateRequest;
 import com.green.spring_board.entity.User;
 import com.green.spring_board.exceptions.ResourceConflictException;
 import com.green.spring_board.exceptions.ResourceNotFoundException;
@@ -13,6 +14,7 @@ import com.green.spring_board.service.BoardService;
 import com.green.spring_board.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,7 +30,8 @@ public class UserController {
     private final BoardService boardService;
 
     @PostMapping("/signup")
-    public ResponseEntity<Void> signup(@RequestBody SignupRequest signupRequest) {
+    public ResponseEntity<Void> login(
+            @RequestBody SignupRequest signupRequest) {
         try{
             userService.signup(signupRequest);
             return ResponseEntity.ok().build();
@@ -43,9 +46,10 @@ public class UserController {
 
     @PostMapping("/login")
     public ResponseEntity<Void> login(
-            @RequestBody LoginRequest loginRequest,
+           @Valid @RequestBody LoginRequest loginRequest,
             HttpServletRequest httpServletRequest
     ){
+        // DTO Valid
         try{
             int userId = userService.login(loginRequest);
             HttpSession session = httpServletRequest.getSession();
@@ -97,14 +101,15 @@ public class UserController {
     @PatchMapping
     public ResponseEntity<Void> updateUserInfo(
             HttpServletRequest request,
-            @RequestBody MyInfoResponse myInfoResponse
+            @Valid @RequestBody UserUpdateRequest userUpdateRequest
+
     ){
         HttpSession session = request.getSession(false);
         if(session == null || session.getAttribute("userId") == null) {
             return ResponseEntity.status(401).build();
         }
         int userId = (int) session.getAttribute("userId");
-        userService.updateUserInfo(userId, myInfoResponse);
+        userService.updateUserInfo(userId, userUpdateRequest);
         return ResponseEntity.ok().build();
     }
 
