@@ -6,6 +6,7 @@ import com.green.spring_board.dto.LikeDetailResponse;
 import com.green.spring_board.entity.Like;
 import com.green.spring_board.entity.User;
 import com.green.spring_board.exceptions.AuthorizationFailureException;
+import com.green.spring_board.exceptions.InvalidStateException;
 import com.green.spring_board.exceptions.ResourceNotFoundException;
 import com.green.spring_board.exceptions.UnauthenticatedException;
 import com.green.spring_board.dto.BoardCreateRequest;
@@ -14,6 +15,8 @@ import com.green.spring_board.entity.Board;
 import com.green.spring_board.repository.LikeRepository;
 import com.green.spring_board.repository.UserRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.boot.data.autoconfigure.web.DataWebProperties;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -28,9 +31,23 @@ public class BoardService {
     private LikeRepository likeRepository;
 
     // 전체 조회
-    public List<BoardResponse> getAllBoards(int userId) {
+    public Page<BoardResponse> getAllBoards(int userId, int page, int size, String order) {
+        Sort sort;
+        if(order.equals("latest")){
+            sort = Sort.by(Sort.Direction.DESC, "createdDatetime");
+        } else if (order.equals("likes")){
+            sort = Sort.by(Sort.Direction.DESC, "likeCount");
+        } else if  (order.equals("views")){
+            sort = Sort.by(Sort.Direction.DESC, "hits");
+        } else {
+            // exception 던지기
+            throw new InvalidStateException("잘못된 정렬 옵션입니다.");
+        }
+
         // List<Board> -> List<BoardResponse> 형태로 변환 후 반환
-        List<Board> boards = boardRepository.findAll();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<Board> boards = boardRepository.findAll(pageable);
+        // order : latest, likes, views
 
         // 1. List<BoardResponse> 형태의 빈 리스트 생성
         List<BoardResponse> boardResponses = new ArrayList<>();
@@ -53,8 +70,8 @@ public class BoardService {
                     )
             );
         }
-        return boardResponses;
 
+        return new PageImpl<>(boardResponses, pageable, boards.getTotalElements());
 
     }
 
