@@ -15,7 +15,6 @@ import com.green.spring_board.entity.Board;
 import com.green.spring_board.repository.LikeRepository;
 import com.green.spring_board.repository.UserRepository;
 import lombok.AllArgsConstructor;
-import org.springframework.boot.data.autoconfigure.web.DataWebProperties;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 
@@ -33,26 +32,21 @@ public class BoardService {
     // 전체 조회
     public Page<BoardResponse> getAllBoards(int userId, int page, int size, String order) {
         Sort sort;
-        if(order.equals("latest")){
+        if(order.equals("latest")) {
             sort = Sort.by(Sort.Direction.DESC, "createdDatetime");
-        } else if (order.equals("likes")){
+        } else if (order.equals("likes")) {
             sort = Sort.by(Sort.Direction.DESC, "likeCount");
-        } else if  (order.equals("views")){
+        } else if (order.equals("views")) {
             sort = Sort.by(Sort.Direction.DESC, "hits");
         } else {
-            // exception 던지기
             throw new InvalidStateException("잘못된 정렬 옵션입니다.");
         }
 
-        // List<Board> -> List<BoardResponse> 형태로 변환 후 반환
         Pageable pageable = PageRequest.of(page, size, sort);
-        Page<Board> boards = boardRepository.findAll(pageable);
-        // order : latest, likes, views
+        Page<Board> boards = boardRepository.findByIsDeletedFalse(pageable);
 
-        // 1. List<BoardResponse> 형태의 빈 리스트 생성
         List<BoardResponse> boardResponses = new ArrayList<>();
 
-        // 2. Board 개수만큼 반복하며 new BoardResponse 생성
         for (Board board : boards) {
             // 3. 1번에서 만든 리스트에 추가
             boardResponses.add(
@@ -84,10 +78,15 @@ public class BoardService {
         }
         Board board = optionalBoard.get();
 
+        if(board.isDeleted()){
+            throw new ResourceNotFoundException("삭제된 게시글입니다.");
+        }
+
         User user = board.getUser();
         System.out.println(user.getNickname());
         board.setHits(board.getHits() + 1);
         boardRepository.save(board);
+
         return new BoardResponse(
                 board.getId(),
                 board.getTitle(),
@@ -103,7 +102,7 @@ public class BoardService {
     }
 
     public List<BoardResponse> getMyBoards(int userId){
-        List<Board> boards = boardRepository.findByUserId(userId);
+        List<Board> boards = boardRepository.findByUserIdAndIsDeletedFalse(userId);
 
         // 1. List<BoardResponse> 형태의 빈 리스트 생성
         List<BoardResponse> boardResponses = new ArrayList<>();
@@ -182,7 +181,8 @@ public class BoardService {
             throw new AuthorizationFailureException("게시글 작업 권한이 없습니다.");
         }
 
-        boardRepository.deleteById(id);
+        board.setDeleted(true);
+        boardRepository.save(board);
     }
 
     public void pressLike(int id, int userId) {
