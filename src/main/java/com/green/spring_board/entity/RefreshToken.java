@@ -9,26 +9,23 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "refresh token")
+@Table(name = "refresh_token")
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-
-
-
 public class RefreshToken {
     @Id
-    @GeneratedValue(strategy =  GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
     @ManyToOne
-    @JoinColumn(name= "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-@Column(name = "token", nullable = false, length = 1024)
+    @Column(name = "token", nullable = false, length = 1024)
     private String token;
 
-@Column(name = "expiration datetime", nullable = false)
+    @Column(name = "expiration_datetime", nullable = false)
     private LocalDateTime expirationDateTime;
 }

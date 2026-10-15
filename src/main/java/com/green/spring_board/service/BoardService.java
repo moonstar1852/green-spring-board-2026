@@ -17,6 +17,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,12 +31,13 @@ public class BoardService {
     private LikeRepository likeRepository;
 
     // 전체 조회
+    @Transactional(readOnly = true)
     public Page<BoardResponse> getAllBoards(int page, int size, String order) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         int userId = userRepository.findByUsername(username).getId();
 
         Sort sort;
-        if(order.equals("latest")) {
+        if (order.equals("latest")) {
             sort = Sort.by(Sort.Direction.DESC, "createdDatetime");
         } else if (order.equals("likes")) {
             sort = Sort.by(Sort.Direction.DESC, "likeCount");
@@ -73,18 +75,19 @@ public class BoardService {
     }
 
     // 상세 조회
+    @Transactional
     public BoardResponse getBoard(int id) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         int userId = userRepository.findByUsername(username).getId();
 
         Optional<Board> optionalBoard = boardRepository.findById(id);
-        if(optionalBoard.isEmpty()) {
+        if (optionalBoard.isEmpty()) {
             // 요청한 게시글을 찾지 못한 경우
             throw new ResourceNotFoundException("요청한 게시글을 찾지 못했습니다.");
         }
         Board board = optionalBoard.get();
 
-        if(board.isDeleted()){
+        if (board.isDeleted()) {
             throw new ResourceNotFoundException("삭제된 게시글입니다.");
         }
 
@@ -107,7 +110,8 @@ public class BoardService {
         );
     }
 
-    public List<BoardResponse> getMyBoards(){
+    @Transactional(readOnly = true)
+    public List<BoardResponse> getMyBoards() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         int userId = userRepository.findByUsername(username).getId();
         List<Board> boards = boardRepository.findByUserIdAndIsDeletedFalse(userId);
@@ -136,6 +140,7 @@ public class BoardService {
         return boardResponses;
     }
 
+    @Transactional
     public int createBoard(BoardCreateRequest boardCreateRequest) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username);
@@ -149,42 +154,44 @@ public class BoardService {
         return savedBoard.getId();
     }
 
+    @Transactional
     public void updateBoard(int id, BoardUpdateRequest boardUpdateRequest) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         int userId = userRepository.findByUsername(username).getId();
         Optional<Board> optionalBoards = boardRepository.findById(id);
-        if(optionalBoards.isEmpty()) {
+        if (optionalBoards.isEmpty()) {
             // 게시글을 못 찾은 경우
             throw new ResourceNotFoundException("게시글을 찾을 수 없습니다.");
         }
         Board board = optionalBoards.get();
 
         // 작성자와 요청자 동일 여부 확인
-        if(board.getUser().getId() != userId) {
+        if (board.getUser().getId() != userId) {
             throw new AuthorizationFailureException("게시글 작업 권한이 없습니다.");
         }
 
-        if(boardUpdateRequest.getTitle() != null && !boardUpdateRequest.getTitle().isBlank()) {
+        if (boardUpdateRequest.getTitle() != null && !boardUpdateRequest.getTitle().isBlank()) {
             board.setTitle(boardUpdateRequest.getTitle());
         }
 
-        if(boardUpdateRequest.getContent() != null && !boardUpdateRequest.getContent().isBlank()) {
+        if (boardUpdateRequest.getContent() != null && !boardUpdateRequest.getContent().isBlank()) {
             board.setContent(boardUpdateRequest.getContent());
         }
 
         boardRepository.save(board);
     }
 
+    @Transactional
     public void deleteBoard(int id) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         int userId = userRepository.findByUsername(username).getId();
         Optional<Board> optionalBoard = boardRepository.findById(id);
-        if(optionalBoard.isEmpty()) {
+        if (optionalBoard.isEmpty()) {
             throw new ResourceNotFoundException("게시글을 찾을 수 없습니다.");
         }
         Board board = optionalBoard.get();
 
-        if(board.getUser().getId() != userId) {
+        if (board.getUser().getId() != userId) {
             throw new AuthorizationFailureException("게시글 작업 권한이 없습니다.");
         }
 
@@ -192,17 +199,19 @@ public class BoardService {
         boardRepository.save(board);
     }
 
-    public void pressLike(int id) {String username = SecurityContextHolder.getContext().getAuthentication().getName();
+    @Transactional
+    public void pressLike(int id) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username);
         Optional<Board> optionalBoard = boardRepository.findById(id);
-        if(optionalBoard.isEmpty()) {
+        if (optionalBoard.isEmpty()) {
             throw new ResourceNotFoundException("존재하지 않는 게시글입니다.");
         }
         Board board = optionalBoard.get();
 
         // 1. 이 유저와 보드로 동일한 좋아요가 있는지 확인
         Optional<Like> likeOptional = likeRepository.findByUserIdAndBoardId(user.getId(), id);
-        if(likeOptional.isEmpty()) {
+        if (likeOptional.isEmpty()) {
             // 없으면 좋아요 추가
             Like like = new Like();
             like.setUser(user);
@@ -221,17 +230,48 @@ public class BoardService {
         }
     }
 
+    @Transactional
     public LikeDetailResponse getLikeDetail(int id) {
         // 1. 이 게시글에 좋아요 누른 유저 정보들을 Like 테이블에서 싹 가져옴
         List<Like> likes = likeRepository.findByBoardId(id);
         // 2. 걔네 닉네임 하나하나 뽑아서, LikeDetailResponse 에 집어넣음
         LikeDetailResponse likeDetailResponse = new LikeDetailResponse();
         List<String> nicknames = new ArrayList<>();
-        for(Like like : likes) {
+        for (Like like : likes) {
             nicknames.add(like.getUser().getNickname());
         }
         likeDetailResponse.setLikedUserNames(nicknames);
         // 3. 끝
         return likeDetailResponse;
+    }
+
+    @Transactional(readOnly = true)
+    public List<BoardResponse> search(String keyword) {
+        List<Board> boards = boardRepository.searchByTitle(keyword);
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username);
+
+        // 내가 좋아요를 누른 모든 게시글 아이디 조회
+        List<Integer> likedBoardIds = likeRepository.findLikedBoardIdsByUserId(user.getId());
+
+        List<BoardResponse> response = new ArrayList<>();
+
+        for (Board board : boards) {
+            BoardResponse newBoard = new BoardResponse(
+                    board.getId(),
+                    board.getTitle(),
+                    board.getContent(),
+                    board.getHits(),
+                    board.getLikeCount(),
+                    // 해당 board에 좋아요를 누른적이 있는지
+                    likedBoardIds.contains(board.getId()),
+                    board.getUser().getId(),
+                    board.getUser().getNickname(),
+                    board.getCreatedDatetime(),
+                    board.getUpdatedDatetime()
+            );
+            response.add(newBoard);
+        }
+        return response;
     }
 }
